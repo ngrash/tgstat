@@ -1,0 +1,55 @@
+configs:
+  grafana-provisioning-victoriametrics-datasource:
+    file: docker/grafana/provisioning/datasources/victoriametrics-datasource.yaml
+  grafana-provisioning-dashboards:
+    file: docker/grafana/provisioning/dashboards.yaml
+
+volumes:
+  vmdata: {}
+  grafanadata: {}
+
+services:
+  tgstat:
+    build:
+      context: .
+      dockerfile: docker/tgstat/Dockerfile
+    profiles:
+      # Disabled by default. Use `docker compose run tgstat` to run it.
+      - tgstat
+    volumes:
+      - .:/tgstat
+    environment:
+      VICTORIAMETRICS_URL: http://victoriametrics:8428
+    depends_on:
+      - victoriametrics
+
+  victoriametrics:
+    container_name: victoriametrics
+    image: victoriametrics/victoria-metrics:v1.102.1
+    ports:
+      - 8428:8428
+    volumes:
+      - vmdata:/storage
+    command:
+      - "--storageDataPath=/storage"
+      - "--httpListenAddr=:8428"
+      # https://docs.victoriametrics.com/#backfilling
+      - "--retentionPeriod=20y"
+      - "--search.disableCache"
+
+  # Grafana instance configured with VictoriaMetrics as datasource
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:10.4.2
+    depends_on:
+      - "victoriametrics"
+    ports:
+      - 3000:3000
+    configs:
+      - source: grafana-provisioning-victoriametrics-datasource
+        target: /etc/grafana/provisioning/datasources/victoriametrics-datasource.yaml
+      - source: grafana-provisioning-dashboards
+        target: /etc/grafana/provisioning/dashboards/dashboards.yaml
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./configs/dashboards:/var/lib/grafana/dashboards

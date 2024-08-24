@@ -1,0 +1,8 @@
+/chat-exports/*
+!/chat-exports/.keep
+
+/configs/*
+!/configs/*.example.json
+!/configs/dashboards
+configs/dashboards/*
+!/configs/dashboards/*
